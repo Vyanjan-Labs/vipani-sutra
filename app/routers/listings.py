@@ -10,6 +10,11 @@ from app.services.image import upload_image
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
+
+def _seller_kyc_verified(user: User) -> bool:
+    sp = user.seller_profile
+    return sp is not None and sp.verification_status == "verified"
+
 CATEGORIES = [
     "Sports", "Clothes", "Electronics", "Grocery",
     "Furniture", "Books", "Stationery", "Other"
@@ -60,7 +65,14 @@ def create_listing(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new listing. Login required."""
+    """Create a new listing. Login required; seller must be KYC-verified."""
+    if not current_user.is_seller:
+        raise HTTPException(status_code=403, detail="Enable seller mode to post listings")
+    if not _seller_kyc_verified(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Seller verification required. Submit PAN and Aadhaar, then wait for approval.",
+        )
     listing = Listing(**body.model_dump(), user_id=current_user.id, images=[])
     db.add(listing)
     db.commit()
@@ -75,6 +87,11 @@ async def upload_listing_images(
     db: Session = Depends(get_db)
 ):
     """Upload images for a listing. Max 5 images."""
+    if not _seller_kyc_verified(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Seller verification required before managing listings.",
+        )
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -96,13 +113,27 @@ def update_listing(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not _seller_kyc_verified(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Seller verification required to edit listings.",
+        )
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your listing")
 
-    for key, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    if "buyer_user_id" in data and data["buyer_user_id"] is not None:
+        bid = data["buyer_user_id"]
+        if bid == listing.user_id:
+            raise HTTPException(status_code=400, detail="Buyer cannot be the listing owner")
+        buyer = db.query(User).filter(User.id == bid).first()
+        if not buyer:
+            raise HTTPException(status_code=400, detail="Invalid buyer user id")
+
+    for key, value in data.items():
         setattr(listing, key, value)
     db.commit()
     db.refresh(listing)
@@ -117,7 +148,7 @@ def delete_listing(
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
-    if listing.user_id != current_user.id and current_user.role != "admin":
+    if listing.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     db.delete(listing)

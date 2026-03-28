@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.routers import auth, listings, users, admin
+from app import models  # noqa: F401 — register ORM tables before create_all
+from app.routers import auth, listings, ratings, users
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -23,8 +24,8 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(listings.router)
+app.include_router(ratings.router)
 app.include_router(users.router)
-app.include_router(admin.router)
 
 @app.get("/")
 def root():

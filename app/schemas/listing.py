@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -21,10 +21,15 @@ class ListingUpdate(BaseModel):
     locality: Optional[str] = None
     contact_number: Optional[str] = None
     status: Optional[str] = None
+    buyer_user_id: Optional[int] = Field(
+        None,
+        description="Buyer user id — set by seller when marking a sale (needed for mutual ratings).",
+    )
 
 class ListingOut(BaseModel):
     id: int
     user_id: int
+    buyer_user_id: Optional[int] = None
     title: str
     description: Optional[str]
     category: str
@@ -36,6 +41,7 @@ class ListingOut(BaseModel):
     contact_number: str
     status: str
     created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

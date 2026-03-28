@@ -14,8 +14,9 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
-    MSG91_AUTH_KEY: str = ""
-    MSG91_TEMPLATE_ID: str = ""
+    # Firebase Admin (optional). Use a service account JSON path, or raw JSON in env.
+    FIREBASE_CREDENTIALS_PATH: str = ""
+    FIREBASE_CREDENTIALS_JSON: str = ""
 
     class Config:
         env_file = ".env"

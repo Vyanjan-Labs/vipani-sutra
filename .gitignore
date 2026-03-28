@@ -1,3 +1,6 @@
+# JetBrains (PyCharm) — local IDE settings; don't share in repo
+.idea/
+
 .venv/
 venv/
 __pycache__/
